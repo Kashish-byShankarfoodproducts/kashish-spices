@@ -400,6 +400,39 @@ export const SiteCustomizer: React.FC = () => {
               </span>
             </div>
 
+            <div style={{ gridColumn: '1 / -1', background: 'rgba(212, 160, 23, 0.08)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(212, 160, 23, 0.25)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <i className="fa-solid fa-shield-halved text-gold"></i>
+                  <span style={{ fontWeight: 700 }}>hCaptcha Spam Protection (Web3Forms ke liye)</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={formData.hcaptchaEnabled ?? true}
+                    onChange={(e) => handleChange('hcaptchaEnabled', e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: 'var(--maroon)' }}
+                  />
+                  <span>Active</span>
+                </label>
+              </div>
+              <p style={{ fontSize: '0.82rem', color: 'var(--gray-600)', marginBottom: '10px', lineHeight: 1.4 }}>
+                Web3Forms dashboard me agar aapne hCaptcha on kiya hai, toh website ke contact form me automatically robot-checking box add ho jayega.
+              </p>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--gray-700)', marginBottom: '4px', display: 'block' }}>
+                  hCaptcha Site Key (Default Web3Forms key: <code>50b2fe65-b00b-4b9e-ad62-3ba471098be2</code>):
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="50b2fe65-b00b-4b9e-ad62-3ba471098be2"
+                  value={formData.hcaptchaSiteKey || ''}
+                  onChange={(e) => handleChange('hcaptchaSiteKey', e.target.value)}
+                />
+              </div>
+            </div>
+
             <div style={{ gridColumn: '1 / -1' }}>
               <label className="form-label">Physical Address</label>
               <input

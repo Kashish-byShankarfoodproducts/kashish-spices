@@ -478,6 +478,8 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   email: 'foodproductsshankar@gmail.com',
   whatsappNumber: '919213544074',
   web3formsAccessKey: '',
+  hcaptchaEnabled: true,
+  hcaptchaSiteKey: '50b2fe65-b00b-4b9e-ad62-3ba471098be2',
   
   facebookUrl: 'https://facebook.com',
   instagramUrl: 'https://instagram.com',

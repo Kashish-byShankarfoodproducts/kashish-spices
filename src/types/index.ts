@@ -85,6 +85,8 @@ export interface SiteConfig {
   email: string;             // 'foodproductsshankar@gmail.com'
   whatsappNumber: string;    // '919213544074' (Bina '+' ke WhatsApp API link ke liye)
   web3formsAccessKey?: string;// Web3Forms Access Key for sending inquiries to email
+  hcaptchaEnabled?: boolean; // Enable/Disable hCaptcha on Contact form
+  hcaptchaSiteKey?: string;  // Custom or default hCaptcha sitekey
   
   // Social links
   facebookUrl?: string;
