@@ -37,7 +37,8 @@ export const MasalaManager: React.FC = () => {
   const [badge, setBadge] = useState('');
   const [inStock, setInStock] = useState(true);
   const [featured, setFeatured] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string>('');
+  const [images, setImages] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   // Pack weights & prices state
   const [weights, setWeights] = useState<ProductWeight[]>([
@@ -63,7 +64,7 @@ export const MasalaManager: React.FC = () => {
     setBadge('');
     setInStock(true);
     setFeatured(false);
-    setImageUrl('');
+    setImages([]);
     setWeights([
       { weight: '12g', price: 15 },
       { weight: '25g', price: 25 },
@@ -84,22 +85,52 @@ export const MasalaManager: React.FC = () => {
     setBadge(prod.badge || '');
     setInStock(prod.inStock);
     setFeatured(prod.featured);
-    setImageUrl(prod.imageUrl || '');
+
+    const existingImages: string[] = [];
+    if (prod.images && Array.isArray(prod.images) && prod.images.length > 0) {
+      existingImages.push(...prod.images);
+    } else if (prod.imageUrl) {
+      existingImages.push(prod.imageUrl);
+    }
+    setImages(existingImages);
+
     setWeights(prod.weights || []);
     setIsFormOpen(true);
   };
 
-  // Handle Image File Upload (Convert to Base64)
-  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Handle Multiple Images Upload (Convert and compress to Base64)
+  const handleImagesFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
+    setUploadingImages(true);
     try {
-      const base64 = await storageService.compressAndReadImage(file);
-      setImageUrl(base64);
+      const newBase64Images: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const base64 = await storageService.compressAndReadImage(files[i]);
+        newBase64Images.push(base64);
+      }
+      setImages((prev) => [...prev, ...newBase64Images]);
     } catch (err) {
-      alert('Photo process karne me error aaya. Kripya doosri photo chunein.');
+      alert('Photos process karne me error aaya. Kripya doosri photo chunein.');
+    } finally {
+      setUploadingImages(false);
+      e.target.value = '';
     }
+  };
+
+  // Remove individual photo
+  const handleRemoveImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Set selected photo as primary cover photo (move to index 0)
+  const handleSetCover = (index: number) => {
+    setImages((prev) => {
+      const target = prev[index];
+      const rest = prev.filter((_, i) => i !== index);
+      return [target, ...rest];
+    });
   };
 
   // Add weight row
@@ -137,7 +168,8 @@ export const MasalaManager: React.FC = () => {
       description: description.trim() || `${title} blend with traditional spices.`,
       weights,
       badge: badge.trim() || undefined,
-      imageUrl: imageUrl || undefined,
+      imageUrl: images.length > 0 ? images[0] : undefined,
+      images: images.length > 0 ? images : undefined,
       inStock,
       featured,
       createdAt: new Date().toISOString(),
@@ -198,7 +230,7 @@ export const MasalaManager: React.FC = () => {
 
         <button className="btn btn-primary" onClick={handleAddNew}>
           <i className="fa-solid fa-plus"></i>
-          <span>+ Add New Masala</span>
+          <span>Add New Masala</span>
         </button>
       </div>
 
@@ -306,15 +338,39 @@ export const MasalaManager: React.FC = () => {
                         border: '1px solid var(--gray-300)',
                       }}
                     >
-                      {prod.imageUrl ? (
-                        <img
-                          src={prod.imageUrl}
-                          alt={prod.title}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <i className="fa-solid fa-mortar-pestle text-gold" style={{ fontSize: '1.2rem' }}></i>
-                      )}
+                      {(() => {
+                        const thumb = (prod.images && prod.images.length > 0) ? prod.images[0] : prod.imageUrl;
+                        const count = (prod.images && prod.images.length > 0) ? prod.images.length : (prod.imageUrl ? 1 : 0);
+                        return thumb ? (
+                          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                            <img
+                              src={thumb}
+                              alt={prod.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                            {count > 1 && (
+                              <span
+                                style={{
+                                  position: 'absolute',
+                                  bottom: '1px',
+                                  right: '1px',
+                                  background: 'rgba(26, 14, 6, 0.85)',
+                                  color: 'var(--gold)',
+                                  fontSize: '0.6rem',
+                                  padding: '1px 3px',
+                                  borderRadius: '3px',
+                                  fontWeight: 700,
+                                  lineHeight: 1,
+                                }}
+                              >
+                                +{count - 1}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <i className="fa-solid fa-mortar-pestle text-gold" style={{ fontSize: '1.2rem' }}></i>
+                        );
+                      })()}
                     </div>
                   </td>
 
@@ -640,67 +696,175 @@ export const MasalaManager: React.FC = () => {
 
                 {/* Right Side: Image Upload & Pack Weights/Pricing */}
                 <div>
-                  {/* Package Image Upload System */}
+                  {/* Package Images Upload System (Multiple Images Supported) */}
                   <div style={{ marginBottom: '20px' }}>
-                    <label className="form-label">Package Image (Photo Upload)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <label className="form-label" style={{ margin: 0 }}>
+                        Package Photos ({images.length} uploaded)
+                      </label>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
+                        Website par hover karne par bari-bari slide hongi
+                      </span>
+                    </div>
+
                     <div
                       style={{
                         border: '2px dashed var(--gold)',
                         borderRadius: '12px',
                         padding: '16px',
-                        textAlign: 'center',
                         background: 'rgba(212, 160, 23, 0.04)',
                         position: 'relative',
                       }}
                     >
-                      {imageUrl ? (
+                      {images.length > 0 ? (
                         <div>
-                          <img
-                            src={imageUrl}
-                            alt="Package Preview"
+                          {/* Grid of uploaded images */}
+                          <div
                             style={{
-                              maxHeight: '160px',
-                              margin: '0 auto 10px auto',
-                              borderRadius: '8px',
-                              objectFit: 'contain',
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setImageUrl('')}
-                            style={{
-                              padding: '4px 10px',
-                              borderRadius: '4px',
-                              background: '#c41e3a',
-                              color: 'white',
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fill, minmax(105px, 1fr))',
+                              gap: '12px',
+                              marginBottom: '14px',
                             }}
                           >
-                            <i className="fa-solid fa-trash" style={{ marginRight: '4px' }}></i>
-                            Remove Image
-                          </button>
+                            {images.map((imgUrl, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  position: 'relative',
+                                  borderRadius: '8px',
+                                  border: idx === 0 ? '2px solid var(--gold)' : '1px solid var(--gray-300)',
+                                  background: '#FFFFFF',
+                                  padding: '4px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  boxShadow: idx === 0 ? '0 0 0 1px var(--gold)' : 'var(--shadow-sm)',
+                                }}
+                              >
+                                {idx === 0 && (
+                                  <span
+                                    style={{
+                                      position: 'absolute',
+                                      top: '4px',
+                                      left: '4px',
+                                      background: 'var(--gold)',
+                                      color: '#1a0e06',
+                                      fontSize: '0.62rem',
+                                      fontWeight: 800,
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      zIndex: 2,
+                                    }}
+                                  >
+                                    ★ Cover
+                                  </span>
+                                )}
+                                <div style={{ width: '100%', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                  <img
+                                    src={imgUrl}
+                                    alt={`Upload ${idx + 1}`}
+                                    style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
+                                  />
+                                </div>
+                                <div style={{ display: 'flex', gap: '4px', width: '100%', marginTop: '6px' }}>
+                                  {idx !== 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetCover(idx)}
+                                      title="Set as Cover Photo"
+                                      style={{
+                                        flex: 1,
+                                        padding: '3px 0',
+                                        fontSize: '0.68rem',
+                                        background: 'rgba(212, 160, 23, 0.15)',
+                                        color: 'var(--maroon)',
+                                        border: '1px solid var(--gold)',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      Set Cover
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveImage(idx)}
+                                    title="Delete this photo"
+                                    style={{
+                                      padding: '3px 8px',
+                                      fontSize: '0.68rem',
+                                      background: '#fee2e2',
+                                      color: '#dc2626',
+                                      border: '1px solid #fca5a5',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      marginLeft: idx === 0 ? 'auto' : '0',
+                                    }}
+                                  >
+                                    <i className="fa-solid fa-trash"></i>
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Add More Photos Button */}
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            <input
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              id="addMoreImagesInput"
+                              onChange={handleImagesFilesChange}
+                              style={{ display: 'none' }}
+                            />
+                            <label
+                              htmlFor="addMoreImagesInput"
+                              className="btn btn-outline"
+                              style={{ padding: '6px 16px', fontSize: '0.82rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              <i className="fa-solid fa-plus"></i>
+                              <span>+ Add More Photos</span>
+                            </label>
+                            {uploadingImages && (
+                              <span style={{ fontSize: '0.8rem', color: 'var(--maroon)', fontWeight: 600 }}>
+                                <i className="fa-solid fa-spinner fa-spin"></i> Processing photos...
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ) : (
-                        <div>
-                          <i className="fa-solid fa-cloud-arrow-up text-gold" style={{ fontSize: '2rem', marginBottom: '8px' }}></i>
-                          <p style={{ fontSize: '0.82rem', color: 'var(--gray-500)', marginBottom: '8px' }}>
-                            Upload Masala Package Image (PNG / JPG / WebP)
+                        <div style={{ textAlign: 'center' }}>
+                          <i className="fa-solid fa-images text-gold" style={{ fontSize: '2.2rem', marginBottom: '8px' }}></i>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--gray-600)', fontWeight: 600, marginBottom: '4px' }}>
+                            Upload Masala Package Photos
+                          </p>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--gray-500)', marginBottom: '12px' }}>
+                            Aap ek saath kitni bhi photos select kar sakte hain (PNG / JPG / WebP).
                           </p>
                           <input
                             type="file"
+                            multiple
                             accept="image/*"
                             id="packageImageInput"
-                            onChange={handleImageFileChange}
+                            onChange={handleImagesFilesChange}
                             style={{ display: 'none' }}
                           />
                           <label
                             htmlFor="packageImageInput"
                             className="btn btn-outline"
-                            style={{ padding: '6px 16px', fontSize: '0.82rem', cursor: 'pointer' }}
+                            style={{ padding: '8px 20px', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                           >
-                            Choose Image File
+                            <i className="fa-solid fa-cloud-arrow-up"></i>
+                            <span>Choose Photos (Select Multiple)</span>
                           </label>
+                          {uploadingImages && (
+                            <p style={{ fontSize: '0.8rem', color: 'var(--maroon)', fontWeight: 600, marginTop: '8px' }}>
+                              <i className="fa-solid fa-spinner fa-spin"></i> Processing photos...
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>

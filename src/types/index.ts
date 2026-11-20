@@ -42,6 +42,7 @@ export interface MasalaProduct {
   weights: ProductWeight[]; // Available pack sizes aur unki MRP
   badge?: string;           // Optional badge: 'Top Seller', 'Premium', 'New', 'Essential', etc.
   imageUrl?: string;        // Package ki uploaded photo (Base64 data URL ya file path)
+  images?: string[];        // Multiple uploaded package photos (Carousel / Auto-slide on hover)
   inStock: boolean;         // Kya ye product abhi stock me available hai? (true/false)
   featured: boolean;        // Kya isse Home page ke Featured Masalas me dikhana hai? (true/false)
   createdAt?: string;       // Kis tareekh ko ye masala list kiya gaya tha
