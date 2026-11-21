@@ -56,6 +56,7 @@ interface ProductContextType {
   deleteProduct: (id: string) => Promise<void>;
   updateSiteConfig: (config: SiteConfig) => void;
   resetToDefaults: () => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -77,22 +78,27 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   /**
-   * Initial Load:
-   * Website open hote hi IndexedDB se masale fetch karein.
+   * Initial Load & Refresh Helper:
+   * Website open hote hi products aur site config load karein.
    */
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        const data = await storageService.getProducts();
-        setProducts(data);
-      } catch (err) {
-        console.error('[ProductContext] Error loading products:', err);
-      } finally {
-        setLoading(false);
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+      const data = await storageService.getProducts();
+      setProducts(data);
+      const remoteConf = await storageService.fetchRemoteSiteConfig();
+      if (remoteConf) {
+        setSiteConfig(remoteConf);
       }
+    } catch (err) {
+      console.error('[ProductContext] Error loading products:', err);
+    } finally {
+      setLoading(false);
     }
-    loadData();
+  };
+
+  useEffect(() => {
+    refreshData();
   }, []);
 
   /**
@@ -222,6 +228,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
         deleteProduct,
         updateSiteConfig,
         resetToDefaults,
+        refreshData,
       }}
     >
       {children}

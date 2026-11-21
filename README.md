@@ -12,9 +12,12 @@ Rebuilt with **React 19**, **TypeScript**, and **Vite**.
      - **Username**: `admin`
      - **Password**: `kashish@123`
    - Password change karne ki suvidha bhi Admin Panel ke andar hi di gayi hai.
-3. **Full Website Customization Without Code / Backend**:
+3. **Live Multi-Device Cloud Sync & Admin Customizer**:
+   - **Supabase Cloud Database Integration**: Admin panel ke changes duniya ke har phone aur laptop me bina code push kiye turant live dikhte hain.
+   - **1-Click Direct Code Publish**: Bina kisi database ke bhi `defaultData.ts` file download karke 1-click me commit kar sakte hain.
    - Masala ka Title, Hindi Title, Description, Categories.
-   - **Package Photo Upload System**: Click ya Drag-and-Drop karke photo upload karein. Automatic client-side compression aur IndexedDB storage (bina kisi external server ke 100% offline & online chalta hai).
+   - **Package Photo Upload System**: Click ya Drag-and-Drop karke photo upload karein. Multi-image auto-slide on hover aur modal slider.
+   - **Automatic Cache Sync**: Purane visitors ke browser ka cache auto-refresh hota hai taaki unhe hamesha latest catalog dikhe.
    - **Dietary Classification**:
      - 🌱 **Pure Veg** (100% Shakahari)
      - 🍗 **Non-Veg** (Mansahari Jaise Chicken, Meat)

@@ -16,6 +16,7 @@ import { MasalaProduct, DietaryType, ProductWeight } from '../../types';
 import { VegBadge } from '../common/VegBadge';
 import { PackagePlaceholder } from '../common/PackagePlaceholder';
 import { storageService } from '../../services/storageService';
+import { supabaseService } from '../../services/supabaseService';
 
 export const MasalaManager: React.FC = () => {
   const { products, categories, addProduct, updateProduct, deleteProduct } = useProducts();
@@ -175,16 +176,26 @@ export const MasalaManager: React.FC = () => {
       createdAt: new Date().toISOString(),
     };
 
+    const isCloud = supabaseService.getConfig().isConfigured;
+
     if (editingId) {
       await updateProduct(productPayload);
-      setStatusNotice(`"${title}" ko safalta-purvak update kar diya gaya!`);
+      setStatusNotice(
+        isCloud
+          ? `"${title}" Cloud Database par update ho gaya! Sabhi devices me live dikhega.`
+          : `"${title}" local browser me update hua. (Sabhi devices me live dikhane ke liye 'Live Cloud Sync' tab se sync karein ya defaultData.ts export karein)`
+      );
     } else {
       await addProduct(productPayload);
-      setStatusNotice(`Naya masala "${title}" safalta-purvak list ho gaya!`);
+      setStatusNotice(
+        isCloud
+          ? `Naya masala "${title}" Cloud Database par live list ho gaya!`
+          : `Naya masala "${title}" local browser me list hua. (Sabhi devices me live dikhane ke liye 'Live Cloud Sync' tab se sync karein ya defaultData.ts export karein)`
+      );
     }
 
     setIsFormOpen(false);
-    setTimeout(() => setStatusNotice(null), 3500);
+    setTimeout(() => setStatusNotice(null), 4500);
   };
 
   // Delete Product

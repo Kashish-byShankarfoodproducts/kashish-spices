@@ -47,6 +47,33 @@ export const DataBackup: React.FC = () => {
     }
   };
 
+  // 1b. Download Updated defaultData.ts (Code Export)
+  const handleDownloadDefaultData = async () => {
+    try {
+      const currentProducts = await storageService.getProducts();
+      const currentConfig = storageService.getSiteConfig();
+      const code = storageService.generateDefaultDataCode(currentProducts, currentConfig);
+
+      const blob = new Blob([code], { type: 'text/typescript' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'defaultData.ts';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setMessage({
+        text: 'defaultData.ts download ho gaya! Isse src/services/ me replace karke git push karein.',
+        type: 'success',
+      });
+      setTimeout(() => setMessage(null), 4500);
+    } catch (e) {
+      setMessage({ text: 'defaultData.ts export karne me error aaya.', type: 'error' });
+    }
+  };
+
   // 2. Import JSON Backup
   const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -152,6 +179,16 @@ export const DataBackup: React.FC = () => {
             <button className="btn btn-primary" onClick={handleExportBackup} style={{ width: '100%' }}>
               <i className="fa-solid fa-download"></i>
               <span>Download JSON Backup</span>
+            </button>
+
+            <button
+              className="btn btn-secondary"
+              onClick={handleDownloadDefaultData}
+              style={{ width: '100%', fontSize: '0.85rem' }}
+              title="Download defaultData.ts file with current products & photos to commit to GitHub"
+            >
+              <i className="fa-solid fa-file-code"></i>
+              <span>Export as defaultData.ts (Code Publish)</span>
             </button>
 
             <div>

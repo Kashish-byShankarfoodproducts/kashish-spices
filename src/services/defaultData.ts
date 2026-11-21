@@ -13,6 +13,13 @@
 import { MasalaProduct, Category, SiteConfig } from '../types';
 
 /**
+ * Catalog Version:
+ * Jab bhi defaultData.ts me naye masale ya photos add ho, is version ko badal dein
+ * taaki sabhi purane visitors ke browser ka cache auto-refresh ho jaye.
+ */
+export const CATALOG_VERSION = '2026-11-21-v1';
+
+/**
  * Default Categories List:
  * Shop Page ke filter tabs ke liye.
  */

@@ -2,38 +2,41 @@
  * ==============================================================================
  * KASHISH MASALE - Storage & Persistence Service
  * ==============================================================================
- * Is file ka kaam browser ke andar data ko permanently save aur load karna hai:
+ * Is file ka kaam browser aur cloud ke beech data ko save aur load karna hai:
  * 
- * 1. IndexedDB:
- *    Browser ka built-in high capacity database. LocalStorage me sirf 5MB
- *    ki limit hoti hai, par IndexedDB me user 100MB+ tak high-resolution
- *    masala package photos save kar sakta hai bina kisi server/backend ke!
+ * 1. Cloud Database (Supabase Sync):
+ *    Jab Supabase connect hota hai, admin ke dwara jode gaye naye masale,
+ *    unke 4 photos, aur website settings duniya ke sabhi devices (phones, laptops)
+ *    par turant real-time live dikhte hain!
  * 
- * 2. LocalStorage Sync:
- *    Site ki configuration (phone number, brand name, taglines) ko
- *    LocalStorage me turant save karta hai.
+ * 2. IndexedDB & Local Storage Cache:
+ *    Browser ka built-in local database jo offline support aur fast loading deta hai.
+ *    Supabase na hone par ya network offline hone par safe fallback ki tarah kaam karta hai.
  * 
  * 3. Client-Side Image Compression:
- *    Admin jab package photo upload karta hai, ye service us photo ko
- *    compress karke Base64 string banati hai taaki website super fast load ho.
+ *    Uploaded images ko WebP / Base64 format me compress karta hai.
+ * 
+ * 4. Code Exporter (defaultData.ts Generator):
+ *    Admin panel ke data aur images ko 1-click me direct code me export karta hai,
+ *    taaki bina kisi cloud database ke bhi GitHub / Cloudflare par deploy kiya ja sake.
  * ==============================================================================
  */
 
 import { MasalaProduct, SiteConfig } from '../types';
-import { DEFAULT_PRODUCTS, DEFAULT_SITE_CONFIG } from './defaultData';
+import { DEFAULT_PRODUCTS, DEFAULT_SITE_CONFIG, DEFAULT_CATEGORIES, CATALOG_VERSION } from './defaultData';
+import { supabaseService } from './supabaseService';
 
 const DB_NAME = 'kashish_spices_db';
 const DB_VERSION = 1;
 const PRODUCTS_STORE = 'products';
 const CONFIG_KEY = 'kashish_site_config';
 const ADMIN_AUTH_KEY = 'kashish_admin_auth';
+const CATALOG_VERSION_KEY = 'kashish_catalog_version';
 
 /**
  * -----------------------------------------------------------------------------
  * IndexedDB Initialization Helper
  * -----------------------------------------------------------------------------
- * Ye function browser ke IndexedDB ko open karta hai.
- * Agar pehli baar khul raha hai, toh 'products' table create karta hai.
  */
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -44,11 +47,9 @@ function openDatabase(): Promise<IDBDatabase> {
 
     const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
-    // Pehli baar table create karne ke liye
     request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(PRODUCTS_STORE)) {
-        // 'id' ko primary key banaya
         db.createObjectStore(PRODUCTS_STORE, { keyPath: 'id' });
       }
     };
@@ -64,20 +65,70 @@ function openDatabase(): Promise<IDBDatabase> {
 }
 
 /**
+ * Helper to write products array into local IndexedDB
+ */
+async function writeProductsToIndexedDB(products: MasalaProduct[]): Promise<void> {
+  try {
+    const db = await openDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([PRODUCTS_STORE], 'readwrite');
+      const store = transaction.objectStore(PRODUCTS_STORE);
+      store.clear();
+      for (const prod of products) {
+        store.put(prod);
+      }
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  } catch (err) {
+    console.warn('[StorageService] writeProductsToIndexedDB error:', err);
+  }
+}
+
+/**
  * -----------------------------------------------------------------------------
  * StorageService Object
  * -----------------------------------------------------------------------------
- * Saare database operations ka single point of control.
  */
 export const storageService = {
   /**
    * 1. GET ALL PRODUCTS (Saare Masale Load Karein):
-   * Pehle IndexedDB se data dhoondhta hai.
-   * Agar IndexedDB khali hai, toh default 24 authentic masalo ko load karta hai.
+   * - Step A: Agar Supabase configured hai, toh cloud database se latest fetch karta hai
+   *   aur local IndexedDB me cache karta hai taaki sabhi devices me turant live dikhe!
+   * - Step B: Agar Supabase configured nahi hai:
+   *   Check karta hai ki kya code ka CATALOG_VERSION badal gaya hai. Agar naya version hai
+   *   toh purana stale cache clear karke naye defaultData.ts ke masale load karta hai.
    */
   async getProducts(): Promise<MasalaProduct[]> {
+    // 1. Try Cloud Database (Supabase) if configured
+    if (supabaseService.getConfig().isConfigured) {
+      try {
+        const cloudProducts = await supabaseService.fetchProducts();
+        if (cloudProducts && cloudProducts.length > 0) {
+          // Cache in local IndexedDB for fast subsequent loads
+          writeProductsToIndexedDB(cloudProducts).catch(() => {});
+          return cloudProducts;
+        }
+      } catch (err) {
+        console.warn('[StorageService] Supabase fetch failed, falling back to local storage:', err);
+      }
+    }
+
+    // 2. Fallback to Local IndexedDB & Version Check
     try {
       const db = await openDatabase();
+
+      // Check if catalog version changed (e.g. fresh git push to Cloudflare)
+      const storedVersion = typeof window !== 'undefined' ? localStorage.getItem(CATALOG_VERSION_KEY) : null;
+      if (storedVersion !== CATALOG_VERSION) {
+        console.log(`[StorageService] Upgrading catalog version to ${CATALOG_VERSION}`);
+        await this.seedDefaultProducts();
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(CATALOG_VERSION_KEY, CATALOG_VERSION);
+        }
+        return DEFAULT_PRODUCTS;
+      }
+
       return new Promise((resolve) => {
         const transaction = db.transaction([PRODUCTS_STORE], 'readonly');
         const store = transaction.objectStore(PRODUCTS_STORE);
@@ -86,7 +137,6 @@ export const storageService = {
         request.onsuccess = async () => {
           const items: MasalaProduct[] = request.result || [];
           if (items.length === 0) {
-            // Agar database khali hai, toh initial default data save karein
             console.log('[StorageService] First time boot: Seeding default products');
             await this.seedDefaultProducts();
             resolve(DEFAULT_PRODUCTS);
@@ -108,59 +158,80 @@ export const storageService = {
 
   /**
    * 2. SAVE OR UPDATE PRODUCT (Masala Add / Edit Karein):
-   * Naya masala add karne ke liye ya existing masala ko edit karne ke liye.
+   * Naye ya existing masala ko IndexedDB me save karta hai,
+   * aur agar Supabase connect hai toh Cloud Database me bhi bhejta hai.
    */
   async saveProduct(product: MasalaProduct): Promise<void> {
+    // 1. Save to local IndexedDB
     const db = await openDatabase();
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction([PRODUCTS_STORE], 'readwrite');
       const store = transaction.objectStore(PRODUCTS_STORE);
-      const request = store.put(product); // put() naye ko insert karta hai aur purane ko update
-
+      const request = store.put(product);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
+
+    // 2. Save to Cloud Database (Supabase) if connected
+    if (supabaseService.getConfig().isConfigured) {
+      try {
+        await supabaseService.saveProduct(product);
+      } catch (err) {
+        console.error('[StorageService] Error saving product to cloud Supabase:', err);
+        throw new Error('Local browser me save ho gaya, par Cloud Database (Supabase) par upload nahi ho paya.');
+      }
+    }
   },
 
   /**
    * 3. DELETE PRODUCT (Masala Delete Karein):
-   * Admin panel se kisi masala ko list se hatane ke liye.
+   * Local IndexedDB aur Supabase dono se hatata hai.
    */
   async deleteProduct(productId: string): Promise<void> {
     const db = await openDatabase();
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction([PRODUCTS_STORE], 'readwrite');
       const store = transaction.objectStore(PRODUCTS_STORE);
       const request = store.delete(productId);
-
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
+
+    if (supabaseService.getConfig().isConfigured) {
+      try {
+        await supabaseService.deleteProduct(productId);
+      } catch (err) {
+        console.error('[StorageService] Error deleting product from Supabase:', err);
+      }
+    }
   },
 
   /**
    * 4. SEED / RESET PRODUCTS (Default Data Restore Karein):
-   * Database ko reset karke original masale restore karta hai.
    */
   async seedDefaultProducts(): Promise<void> {
     const db = await openDatabase();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([PRODUCTS_STORE], 'readwrite');
       const store = transaction.objectStore(PRODUCTS_STORE);
-      store.clear(); // Purana data saaf karein
+      store.clear();
 
       for (const product of DEFAULT_PRODUCTS) {
         store.put(product);
       }
 
-      transaction.oncomplete = () => resolve();
+      transaction.oncomplete = () => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(CATALOG_VERSION_KEY, CATALOG_VERSION);
+        }
+        resolve();
+      };
       transaction.onerror = () => reject(transaction.error);
     });
   },
 
   /**
-   * 5. GET SITE CONFIG (Website ki Settings Load Karein):
-   * Brand name, mobile numbers, FSSAI number, social links etc.
+   * 5. GET SITE CONFIG:
    */
   getSiteConfig(): SiteConfig {
     if (typeof window === 'undefined') return DEFAULT_SITE_CONFIG;
@@ -182,8 +253,25 @@ export const storageService = {
   },
 
   /**
-   * 6. SAVE SITE CONFIG (Website ki Settings Save Karein):
-   * Admin panel se kiya gaya koi bhi badlav turant save ho jata hai.
+   * 6. FETCH REMOTE SITE CONFIG FROM CLOUD (Async):
+   */
+  async fetchRemoteSiteConfig(): Promise<SiteConfig | null> {
+    if (supabaseService.getConfig().isConfigured) {
+      try {
+        const cloudConfig = await supabaseService.fetchSiteConfig();
+        if (cloudConfig) {
+          this.saveSiteConfig(cloudConfig);
+          return cloudConfig;
+        }
+      } catch (err) {
+        console.warn('[StorageService] Error fetching cloud site config:', err);
+      }
+    }
+    return null;
+  },
+
+  /**
+   * 7. SAVE SITE CONFIG:
    */
   saveSiteConfig(config: SiteConfig): void {
     if (typeof window === 'undefined') return;
@@ -192,12 +280,16 @@ export const storageService = {
     } catch (e) {
       console.error('[StorageService] Error saving site config to localStorage', e);
     }
+
+    if (supabaseService.getConfig().isConfigured) {
+      supabaseService.saveSiteConfig(config).catch((err) => {
+        console.error('[StorageService] Failed to sync config to Supabase:', err);
+      });
+    }
   },
 
   /**
-   * 7. IMAGE UPLOADER & COMPRESSOR (Package Photo Upload System):
-   * User ki uploaded photo ko clean Base64 me convert karta hai.
-   * Image ko resize karta hai taaki IndexedDB me fast load ho.
+   * 8. IMAGE UPLOADER & COMPRESSOR:
    */
   async compressAndReadImage(file: File, maxWidth = 900, maxHeight = 900, quality = 0.85): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -205,7 +297,6 @@ export const storageService = {
       reader.onload = (readerEvent) => {
         const image = new Image();
         image.onload = () => {
-          // Canvas ke through aspect ratio maintain karke resize karein
           let width = image.width;
           let height = image.height;
 
@@ -231,12 +322,10 @@ export const storageService = {
             return;
           }
 
-          // Smooth rendering
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(image, 0, 0, width, height);
 
-          // WebP ya JPEG format me high-quality Base64 generate karein
           const base64Url = canvas.toDataURL('image/webp', quality);
           resolve(base64Url);
         };
@@ -249,14 +338,13 @@ export const storageService = {
   },
 
   /**
-   * 8. EXPORT DATABASE (Backup Download Karein):
-   * Saare products aur site configuration ka JSON file generate karta hai.
+   * 9. EXPORT DATABASE (Backup Download):
    */
   async exportFullBackup(): Promise<string> {
     const products = await this.getProducts();
     const config = this.getSiteConfig();
     const backupData = {
-      version: '2.0',
+      version: '2.1',
       exportedAt: new Date().toISOString(),
       config,
       products,
@@ -265,8 +353,36 @@ export const storageService = {
   },
 
   /**
-   * 9. IMPORT DATABASE (Backup Restore Karein):
-   * Pehle se download kiye hue JSON backup ko wapas restore karta hai.
+   * 10. GENERATE defaultData.ts FILE CONTENT (1-Click Publish to Code):
+   * Is function se naya defaultData.ts banta hai jisme user ke naye masale
+   * aur unki uploaded photos embedded hoti hain.
+   */
+  generateDefaultDataCode(products: MasalaProduct[], config: SiteConfig): string {
+    const newVersion = `catalog-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
+
+    return `/**
+ * ==============================================================================
+ * KASHISH MASALE - Default Initial Data (Seed Data)
+ * ==============================================================================
+ * Generated via Kashish Admin Panel - 1-Click Code Publisher
+ * Date: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+ * ==============================================================================
+ */
+
+import { MasalaProduct, Category, SiteConfig } from '../types';
+
+export const CATALOG_VERSION = ${JSON.stringify(newVersion)};
+
+export const DEFAULT_CATEGORIES: Category[] = ${JSON.stringify(DEFAULT_CATEGORIES, null, 2)};
+
+export const DEFAULT_PRODUCTS: MasalaProduct[] = ${JSON.stringify(products, null, 2)};
+
+export const DEFAULT_SITE_CONFIG: SiteConfig = ${JSON.stringify(config, null, 2)};
+`;
+  },
+
+  /**
+   * 11. IMPORT DATABASE:
    */
   async importFullBackup(jsonContent: string): Promise<boolean> {
     try {
@@ -279,19 +395,18 @@ export const storageService = {
         this.saveSiteConfig(parsed.config);
       }
 
-      const db = await openDatabase();
-      const transaction = db.transaction([PRODUCTS_STORE], 'readwrite');
-      const store = transaction.objectStore(PRODUCTS_STORE);
-      store.clear();
+      await writeProductsToIndexedDB(parsed.products);
 
-      for (const prod of parsed.products) {
-        store.put(prod);
+      // If Supabase is connected, offer to sync all to cloud as well
+      if (supabaseService.getConfig().isConfigured) {
+        try {
+          await supabaseService.syncAllToCloud(parsed.products, parsed.config || this.getSiteConfig());
+        } catch (e) {
+          console.warn('[StorageService] Could not sync imported backup to Supabase:', e);
+        }
       }
 
-      return new Promise((resolve) => {
-        transaction.oncomplete = () => resolve(true);
-        transaction.onerror = () => resolve(false);
-      });
+      return true;
     } catch (e) {
       console.error('[StorageService] Failed to import backup:', e);
       return false;
@@ -299,7 +414,7 @@ export const storageService = {
   },
 
   /**
-   * 10. AUTH STORAGE HELPERS (Admin Login Session):
+   * 12. AUTH STORAGE HELPERS:
    */
   getStoredAuth(): { isAuthenticated: boolean; username: string } {
     if (typeof window === 'undefined') return { isAuthenticated: false, username: '' };

@@ -17,15 +17,17 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useProducts } from '../../context/ProductContext';
+import { supabaseService } from '../../services/supabaseService';
 import { MasalaManager } from './MasalaManager';
 import { SiteCustomizer } from './SiteCustomizer';
+import { CloudSync } from './CloudSync';
 import { DataBackup } from './DataBackup';
 
 interface AdminDashboardProps {
   onBackToWebsite: () => void;
 }
 
-type AdminTab = 'masalas' | 'customizer' | 'backup';
+type AdminTab = 'masalas' | 'customizer' | 'cloud' | 'backup';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToWebsite }) => {
   const { username, logout } = useAuth();
@@ -84,7 +86,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToWebsite 
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Cloud Database Sync Status Pill */}
+          <button
+            onClick={() => setActiveTab('cloud')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 'var(--radius-full)',
+              background: supabaseService.getConfig().isConfigured ? 'rgba(40, 167, 69, 0.25)' : 'rgba(255, 152, 0, 0.25)',
+              border: `1px solid ${supabaseService.getConfig().isConfigured ? '#4cd964' : '#ffb74d'}`,
+              color: 'white',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            title="Click to manage live database sync"
+          >
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: supabaseService.getConfig().isConfigured ? '#4cd964' : '#ffb74d',
+                boxShadow: supabaseService.getConfig().isConfigured ? '0 0 8px #4cd964' : '0 0 8px #ffb74d',
+              }}
+            ></span>
+            <span>{supabaseService.getConfig().isConfigured ? 'Cloud Synced' : 'Local Mode'}</span>
+          </button>
+
           <button
             onClick={onBackToWebsite}
             className="btn btn-outline"
@@ -230,6 +263,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToWebsite 
           </button>
 
           <button
+            className={`admin-nav-btn ${activeTab === 'cloud' ? 'active' : ''}`}
+            onClick={() => setActiveTab('cloud')}
+          >
+            <i className="fa-solid fa-cloud"></i>
+            <span>Live Cloud Sync</span>
+          </button>
+
+          <button
             className={`admin-nav-btn ${activeTab === 'backup' ? 'active' : ''}`}
             onClick={() => setActiveTab('backup')}
           >
@@ -241,6 +282,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToWebsite 
         {/* Tab Content Display */}
         {activeTab === 'masalas' && <MasalaManager />}
         {activeTab === 'customizer' && <SiteCustomizer />}
+        {activeTab === 'cloud' && <CloudSync />}
         {activeTab === 'backup' && <DataBackup />}
       </main>
     </div>
