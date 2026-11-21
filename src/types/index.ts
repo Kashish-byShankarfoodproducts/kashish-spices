@@ -104,6 +104,9 @@ export interface SiteConfig {
   statNaturalPercent: number;// 100 (Natural Ingredients)
   statDistributors: number;  // 50 (City Distributors)
   statPurePromise: number;   // 100 (% Pure Promise)
+
+  // Custom Product Ordering / Ranking
+  productOrder?: string[];   // Sequence of product IDs: Jo product top pe chahiye wo pehle aayega
 }
 
 /**

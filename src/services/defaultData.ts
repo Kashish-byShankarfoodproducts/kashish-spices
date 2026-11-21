@@ -502,4 +502,5 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   statNaturalPercent: 100,
   statDistributors: 50,
   statPurePromise: 100,
+  productOrder: [],
 };

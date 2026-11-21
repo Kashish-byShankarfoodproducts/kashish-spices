@@ -57,6 +57,12 @@ interface ProductContextType {
   updateSiteConfig: (config: SiteConfig) => void;
   resetToDefaults: () => Promise<void>;
   refreshData: () => Promise<void>;
+
+  // Custom Product Ordering / Sequence
+  reorderProducts: (orderedIds: string[]) => Promise<void>;
+  moveProductToTop: (productId: string) => Promise<void>;
+  moveProductUp: (productId: string) => Promise<void>;
+  moveProductDown: (productId: string) => Promise<void>;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -78,6 +84,24 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
   /**
+   * Helper: Sort products based on custom sequence in productOrder
+   */
+  const sortProductsByOrder = (prods: MasalaProduct[], orderList?: string[]): MasalaProduct[] => {
+    if (!orderList || orderList.length === 0) {
+      return [...prods].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    }
+    const orderMap = new Map<string, number>();
+    orderList.forEach((id, idx) => orderMap.set(id, idx));
+
+    return [...prods].sort((a, b) => {
+      const rankA = orderMap.has(a.id) ? orderMap.get(a.id)! : 999999;
+      const rankB = orderMap.has(b.id) ? orderMap.get(b.id)! : 999999;
+      if (rankA !== rankB) return rankA - rankB;
+      return (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+  };
+
+  /**
    * Initial Load & Refresh Helper:
    * Website open hote hi products aur site config load karein.
    */
@@ -85,11 +109,12 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setLoading(true);
       const data = await storageService.getProducts();
-      setProducts(data);
       const remoteConf = await storageService.fetchRemoteSiteConfig();
+      const activeConf = remoteConf || siteConfig;
       if (remoteConf) {
         setSiteConfig(remoteConf);
       }
+      setProducts(sortProductsByOrder(data, activeConf.productOrder));
     } catch (err) {
       console.error('[ProductContext] Error loading products:', err);
     } finally {
@@ -118,12 +143,18 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   /**
    * ADD PRODUCT (Admin Panel se naya masala list karna):
-   * 1. IndexedDB me save karta hai.
+   * 1. IndexedDB aur Supabase me save karta hai.
    * 2. React state me add karta hai taaki website par turant dikhe.
    */
   const addProduct = async (newProduct: MasalaProduct) => {
     await storageService.saveProduct(newProduct);
-    setProducts((prev) => [newProduct, ...prev]);
+    const currentOrder = siteConfig.productOrder && siteConfig.productOrder.length > 0
+      ? [...siteConfig.productOrder]
+      : products.map((p) => p.id);
+    const newOrder = [newProduct.id, ...currentOrder.filter((id) => id !== newProduct.id)];
+    const updatedConf = { ...siteConfig, productOrder: newOrder };
+    updateSiteConfig(updatedConf);
+    setProducts((prev) => sortProductsByOrder([newProduct, ...prev], newOrder));
   };
 
   /**
@@ -131,9 +162,10 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
    */
   const updateProduct = async (updatedProduct: MasalaProduct) => {
     await storageService.saveProduct(updatedProduct);
-    setProducts((prev) =>
-      prev.map((item) => (item.id === updatedProduct.id ? updatedProduct : item))
-    );
+    setProducts((prev) => {
+      const updated = prev.map((item) => (item.id === updatedProduct.id ? updatedProduct : item));
+      return sortProductsByOrder(updated, siteConfig.productOrder);
+    });
   };
 
   /**
@@ -141,15 +173,66 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
    */
   const deleteProduct = async (id: string) => {
     await storageService.deleteProduct(id);
+    if (siteConfig.productOrder && siteConfig.productOrder.includes(id)) {
+      const newOrder = siteConfig.productOrder.filter((item) => item !== id);
+      updateSiteConfig({ ...siteConfig, productOrder: newOrder });
+    }
     setProducts((prev) => prev.filter((item) => item.id !== id));
   };
 
   /**
-   * UPDATE SITE CONFIG (Brand info, Phones, FSSAI live update):
+   * UPDATE SITE CONFIG (Brand info, Phones, FSSAI, Product Order live update):
    */
   const updateSiteConfig = (newConfig: SiteConfig) => {
     storageService.saveSiteConfig(newConfig);
     setSiteConfig(newConfig);
+  };
+
+  /**
+   * CUSTOM PRODUCT ORDERING / RANKING ACTIONS:
+   */
+  const reorderProducts = async (newOrderIds: string[]) => {
+    const updatedConf = { ...siteConfig, productOrder: newOrderIds };
+    updateSiteConfig(updatedConf);
+    setProducts((prev) => sortProductsByOrder(prev, newOrderIds));
+  };
+
+  const moveProductToTop = async (productId: string) => {
+    const currentOrder = siteConfig.productOrder && siteConfig.productOrder.length > 0
+      ? [...siteConfig.productOrder]
+      : products.map((p) => p.id);
+
+    const filtered = currentOrder.filter((id) => id !== productId);
+    const newOrder = [productId, ...filtered];
+    await reorderProducts(newOrder);
+  };
+
+  const moveProductUp = async (productId: string) => {
+    const currentOrder = siteConfig.productOrder && siteConfig.productOrder.length > 0
+      ? [...siteConfig.productOrder]
+      : products.map((p) => p.id);
+
+    const idx = currentOrder.indexOf(productId);
+    if (idx > 0) {
+      const temp = currentOrder[idx - 1];
+      currentOrder[idx - 1] = currentOrder[idx];
+      currentOrder[idx] = temp;
+      await reorderProducts([...currentOrder]);
+    }
+  };
+
+  const moveProductDown = async (productId: string) => {
+    const currentOrder = siteConfig.productOrder && siteConfig.productOrder.length > 0
+      ? [...siteConfig.productOrder]
+      : products.map((p) => p.id);
+
+    const idx = currentOrder.indexOf(productId);
+    if (idx !== -1 && idx < currentOrder.length - 1) {
+      const temp = currentOrder[idx + 1];
+      currentOrder[idx + 1] = currentOrder[idx];
+      currentOrder[idx] = temp;
+      await reorderProducts([...currentOrder]);
+    }
   };
 
   /**
@@ -229,6 +312,10 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateSiteConfig,
         resetToDefaults,
         refreshData,
+        reorderProducts,
+        moveProductToTop,
+        moveProductUp,
+        moveProductDown,
       }}
     >
       {children}

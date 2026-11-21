@@ -19,7 +19,21 @@ import { storageService } from '../../services/storageService';
 import { supabaseService } from '../../services/supabaseService';
 
 export const MasalaManager: React.FC = () => {
-  const { products, categories, addProduct, updateProduct, deleteProduct } = useProducts();
+  const {
+    products,
+    categories,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    moveProductToTop,
+    moveProductUp,
+    moveProductDown,
+    reorderProducts,
+  } = useProducts();
+
+  // Reorder sequence modal state
+  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
+  const [reorderList, setReorderList] = useState<MasalaProduct[]>([]);
 
   // Search filter inside admin table
   const [adminSearch, setAdminSearch] = useState('');
@@ -240,14 +254,37 @@ export const MasalaManager: React.FC = () => {
             Masala Packages Catalog ({products.length})
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
-            Naya masala jodein, photo upload karein, ya existing products ki details update karein.
+            Naya masala jodein, photo upload karein, ya display order (ranking) set karein.
           </p>
         </div>
 
-        <button className="btn btn-primary" onClick={handleAddNew}>
-          <i className="fa-solid fa-plus"></i>
-          <span>Add New Masala</span>
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => {
+              setReorderList([...products]);
+              setIsReorderModalOpen(true);
+            }}
+            style={{
+              padding: '8px 16px',
+              fontSize: '0.85rem',
+              borderColor: 'var(--gold)',
+              color: 'var(--maroon)',
+              fontWeight: 700,
+              background: '#FFFDF9',
+            }}
+            title="Arrange product display order"
+          >
+            <i className="fa-solid fa-arrow-down-up-across-line text-gold"></i>
+            <span>Reorder Products (क्रम बदलें)</span>
+          </button>
+
+          <button className="btn btn-primary" onClick={handleAddNew}>
+            <i className="fa-solid fa-plus"></i>
+            <span>Add New Masala</span>
+          </button>
+        </div>
       </div>
 
       {/* Success Notification Alert */}
@@ -323,22 +360,46 @@ export const MasalaManager: React.FC = () => {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.92rem', fontFamily: 'var(--font-admin)' }}>
           <thead>
             <tr style={{ background: '#F8F5EE', borderBottom: '2px solid #E2D9CC' }}>
+              <th style={{ padding: '14px 12px', color: '#2B160C', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em', textTransform: 'uppercase', textAlign: 'center', width: '68px' }}>Rank</th>
               <th style={{ padding: '14px 16px', color: '#2B160C', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Package</th>
               <th style={{ padding: '14px 16px', color: '#2B160C', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Masala Title</th>
               <th style={{ padding: '14px 16px', color: '#2B160C', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Category</th>
               <th style={{ padding: '14px 16px', color: '#2B160C', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Dietary Type</th>
               <th style={{ padding: '14px 16px', color: '#2B160C', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Packs & MRP</th>
               <th style={{ padding: '14px 16px', color: '#2B160C', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Stock</th>
-              <th style={{ padding: '14px 16px', color: '#2B160C', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
+              <th style={{ padding: '14px 16px', color: '#2B160C', fontWeight: 700, fontSize: '0.82rem', letterSpacing: '0.04em', textTransform: 'uppercase', textAlign: 'right' }}>Actions & Ordering</th>
             </tr>
           </thead>
           <tbody>
             {displayRows.length > 0 ? (
-              displayRows.map((prod) => (
+              displayRows.map((prod, index) => (
                 <tr
                   key={prod.id}
                   style={{ borderBottom: '1px solid var(--gray-200)', transition: 'background 0.2s' }}
                 >
+                  {/* Rank Position */}
+                  <td style={{ padding: '12px 10px', textAlign: 'center' }}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        background: index === 0 ? 'var(--gold)' : index < 3 ? 'rgba(212, 160, 23, 0.22)' : '#ECE6DC',
+                        color: index === 0 ? '#1A1209' : index < 3 ? 'var(--maroon)' : '#6B5A4E',
+                        border: index === 0 ? '1.5px solid #b8860b' : '1px solid #D8CEBE',
+                        boxShadow: index === 0 ? '0 0 6px rgba(212, 160, 23, 0.5)' : 'none',
+                      }}
+                      title={index === 0 ? '👑 #1 Top Product (Website par sabse upar dikhega)' : `Display Rank #${index + 1}`}
+                    >
+                      {index === 0 ? '👑 1' : index + 1}
+                    </span>
+                  </td>
+
                   {/* Thumbnail / Pouch */}
                   <td style={{ padding: '12px 16px', width: '70px' }}>
                     <div
@@ -467,18 +528,94 @@ export const MasalaManager: React.FC = () => {
                     </span>
                   </td>
 
-                  {/* Actions (Edit / Delete) */}
+                  {/* Actions (Reorder & Edit & Delete) */}
                   <td style={{ padding: '10px 16px', textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', gap: '8px' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      {/* 1-Click Move to Top Button */}
                       <button
+                        type="button"
+                        onClick={async () => {
+                          await moveProductToTop(prod.id);
+                          setStatusNotice(`"${prod.title}" ko TOP (#1 position) par bhej diya gaya! Sabhi devices me sabse upar dikhega.`);
+                          setTimeout(() => setStatusNotice(null), 4000);
+                        }}
+                        disabled={index === 0}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          background: index === 0 ? 'rgba(40, 167, 69, 0.15)' : 'rgba(212, 160, 23, 0.18)',
+                          color: index === 0 ? '#1e7e34' : '#8B6508',
+                          border: `1px solid ${index === 0 ? '#28a745' : 'var(--gold)'}`,
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          cursor: index === 0 ? 'default' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                        title={index === 0 ? 'Pehle se hi top (#1) par hai' : 'Sabse upar layein (#1 Top)'}
+                      >
+                        <i className={index === 0 ? 'fa-solid fa-crown' : 'fa-solid fa-arrow-up-to-line'}></i>
+                        <span>{index === 0 ? 'Top' : 'Make Top'}</span>
+                      </button>
+
+                      {/* Move Up */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await moveProductUp(prod.id);
+                          setStatusNotice(`"${prod.title}" ko 1 position upar kar diya.`);
+                          setTimeout(() => setStatusNotice(null), 3000);
+                        }}
+                        disabled={index === 0}
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          background: index === 0 ? '#F3EFEA' : '#FAF8ED',
+                          color: index === 0 ? '#C4B9AA' : 'var(--maroon)',
+                          border: '1px solid #D8CEBE',
+                          fontSize: '0.8rem',
+                          cursor: index === 0 ? 'not-allowed' : 'pointer',
+                        }}
+                        title="1 Position Upar Karein"
+                      >
+                        <i className="fa-solid fa-arrow-up"></i>
+                      </button>
+
+                      {/* Move Down */}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await moveProductDown(prod.id);
+                          setStatusNotice(`"${prod.title}" ko 1 position niche kar diya.`);
+                          setTimeout(() => setStatusNotice(null), 3000);
+                        }}
+                        disabled={index === displayRows.length - 1}
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          background: index === displayRows.length - 1 ? '#F3EFEA' : '#FAF8ED',
+                          color: index === displayRows.length - 1 ? '#C4B9AA' : 'var(--maroon)',
+                          border: '1px solid #D8CEBE',
+                          fontSize: '0.8rem',
+                          cursor: index === displayRows.length - 1 ? 'not-allowed' : 'pointer',
+                        }}
+                        title="1 Position Niche Karein"
+                      >
+                        <i className="fa-solid fa-arrow-down"></i>
+                      </button>
+
+                      {/* Edit */}
+                      <button
+                        type="button"
                         onClick={() => handleEdit(prod)}
                         style={{
-                          padding: '6px 12px',
+                          padding: '6px 10px',
                           borderRadius: '6px',
                           background: 'rgba(212, 160, 23, 0.15)',
                           color: 'var(--gold-dark)',
                           border: '1px solid var(--gold)',
-                          fontSize: '0.85rem',
+                          fontSize: '0.82rem',
                           fontWeight: 600,
                         }}
                         title="Edit Masala"
@@ -486,15 +623,17 @@ export const MasalaManager: React.FC = () => {
                         <i className="fa-solid fa-pen-to-square"></i>
                       </button>
 
+                      {/* Delete */}
                       <button
+                        type="button"
                         onClick={() => handleDelete(prod.id, prod.title)}
                         style={{
-                          padding: '6px 12px',
+                          padding: '6px 10px',
                           borderRadius: '6px',
                           background: 'rgba(196, 30, 58, 0.1)',
                           color: 'var(--deep-red)',
                           border: '1px solid var(--deep-red)',
-                          fontSize: '0.85rem',
+                          fontSize: '0.82rem',
                           fontWeight: 600,
                         }}
                         title="Delete Masala"
@@ -984,6 +1123,212 @@ export const MasalaManager: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reorder / Sequence Manager Modal */}
+      {isReorderModalOpen && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsReorderModalOpen(false);
+          }}
+        >
+          <div
+            className="modal-card"
+            style={{ maxWidth: '640px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '20px 24px',
+                borderBottom: '1px solid var(--gray-200)',
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontFamily: 'var(--font-heading)', color: 'var(--maroon)', fontSize: '1.25rem' }}>
+                  <i className="fa-solid fa-arrow-down-up-across-line text-gold" style={{ marginRight: '8px' }}></i>
+                  Products Display Reorder (क्रम व्यवस्थित करें)
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--gray-500)' }}>
+                  Aap jise sabse upar dikhana chahein, uske samne <strong>"Top"</strong> par click karein ya arrows se aage-piche karein.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReorderModalOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.2rem',
+                  cursor: 'pointer',
+                  color: 'var(--gray-500)',
+                }}
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            {/* Scrollable list */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {reorderList.map((prod, idx) => (
+                  <div
+                    key={prod.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      background: idx === 0 ? 'rgba(212, 160, 23, 0.12)' : '#FAF8ED',
+                      border: idx === 0 ? '1.5px solid var(--gold)' : '1px solid #E2D9CC',
+                      gap: '12px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          background: idx === 0 ? 'var(--gold)' : '#E2D9CC',
+                          color: idx === 0 ? '#1A1209' : '#332418',
+                          fontWeight: 800,
+                          fontSize: '0.78rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {idx === 0 ? '👑' : idx + 1}
+                      </span>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1A0E06' }}>{prod.title}</div>
+                        {prod.hindiTitle && (
+                          <div style={{ fontSize: '0.78rem', color: '#8B1A1A' }}>{prod.hindiTitle}</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const item = reorderList[idx];
+                          const rest = reorderList.filter((_, i) => i !== idx);
+                          setReorderList([item, ...rest]);
+                        }}
+                        disabled={idx === 0}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '5px',
+                          background: idx === 0 ? '#E2D9CC' : 'var(--gold)',
+                          color: '#1A1209',
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          border: 'none',
+                          cursor: idx === 0 ? 'default' : 'pointer',
+                        }}
+                        title="Top pe layein (#1)"
+                      >
+                        <i className="fa-solid fa-arrow-up-to-line"></i> Top
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (idx > 0) {
+                            const updated = [...reorderList];
+                            const temp = updated[idx - 1];
+                            updated[idx - 1] = updated[idx];
+                            updated[idx] = temp;
+                            setReorderList(updated);
+                          }
+                        }}
+                        disabled={idx === 0}
+                        style={{
+                          padding: '5px 8px',
+                          borderRadius: '5px',
+                          background: '#fff',
+                          border: '1px solid #D8CEBE',
+                          cursor: idx === 0 ? 'not-allowed' : 'pointer',
+                          color: idx === 0 ? '#ccc' : '#333',
+                        }}
+                        title="Move Up"
+                      >
+                        <i className="fa-solid fa-arrow-up"></i>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (idx < reorderList.length - 1) {
+                            const updated = [...reorderList];
+                            const temp = updated[idx + 1];
+                            updated[idx + 1] = updated[idx];
+                            updated[idx] = temp;
+                            setReorderList(updated);
+                          }
+                        }}
+                        disabled={idx === reorderList.length - 1}
+                        style={{
+                          padding: '5px 8px',
+                          borderRadius: '5px',
+                          background: '#fff',
+                          border: '1px solid #D8CEBE',
+                          cursor: idx === reorderList.length - 1 ? 'not-allowed' : 'pointer',
+                          color: idx === reorderList.length - 1 ? '#ccc' : '#333',
+                        }}
+                        title="Move Down"
+                      >
+                        <i className="fa-solid fa-arrow-down"></i>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer with Save Button */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '16px 24px',
+                borderTop: '1px solid var(--gray-200)',
+                background: '#FAF8ED',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setIsReorderModalOpen(false)}
+                style={{ padding: '8px 18px', fontSize: '0.85rem' }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={async () => {
+                  await reorderProducts(reorderList.map((p) => p.id));
+                  setIsReorderModalOpen(false);
+                  setStatusNotice('Products ka naya display sequence safalta-purvak save ho gaya! Sabhi devices me update ho chuka hai.');
+                  setTimeout(() => setStatusNotice(null), 4500);
+                }}
+                style={{ padding: '8px 24px', fontSize: '0.88rem' }}
+              >
+                <i className="fa-solid fa-check"></i>
+                <span>Save Sequence (क्रम लागू करें)</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
