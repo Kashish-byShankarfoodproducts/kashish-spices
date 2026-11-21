@@ -178,24 +178,29 @@ export const MasalaManager: React.FC = () => {
 
     const isCloud = supabaseService.getConfig().isConfigured;
 
-    if (editingId) {
-      await updateProduct(productPayload);
-      setStatusNotice(
-        isCloud
-          ? `"${title}" Cloud Database par update ho gaya! Sabhi devices me live dikhega.`
-          : `"${title}" local browser me update hua. (Sabhi devices me live dikhane ke liye 'Live Cloud Sync' tab se sync karein ya defaultData.ts export karein)`
-      );
-    } else {
-      await addProduct(productPayload);
-      setStatusNotice(
-        isCloud
-          ? `Naya masala "${title}" Cloud Database par live list ho gaya!`
-          : `Naya masala "${title}" local browser me list hua. (Sabhi devices me live dikhane ke liye 'Live Cloud Sync' tab se sync karein ya defaultData.ts export karein)`
-      );
+    try {
+      if (editingId) {
+        await updateProduct(productPayload);
+        setStatusNotice(
+          isCloud
+            ? `"${title}" Cloud Database par update ho gaya! Sabhi devices me live dikhega.`
+            : `"${title}" update ho gaya! (Sabhi devices me live dikhane ke liye 'Live Cloud Sync' tab se sync karein ya defaultData.ts export karein)`
+        );
+      } else {
+        await addProduct(productPayload);
+        setStatusNotice(
+          isCloud
+            ? `Naya masala "${title}" Cloud Database par live list ho gaya!`
+            : `Naya masala "${title}" list ho gaya! (Sabhi devices me live dikhane ke liye 'Live Cloud Sync' tab se sync karein ya defaultData.ts export karein)`
+        );
+      }
+    } catch (err: any) {
+      console.error('[MasalaManager] Save error:', err);
+      setStatusNotice(`"${title}" local browser me save ho gaya.`);
+    } finally {
+      setIsFormOpen(false);
+      setTimeout(() => setStatusNotice(null), 4500);
     }
-
-    setIsFormOpen(false);
-    setTimeout(() => setStatusNotice(null), 4500);
   };
 
   // Delete Product

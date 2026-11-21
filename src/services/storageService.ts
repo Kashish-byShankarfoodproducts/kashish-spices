@@ -172,13 +172,13 @@ export const storageService = {
       request.onerror = () => reject(request.error);
     });
 
-    // 2. Save to Cloud Database (Supabase) if connected
+    // 2. Save to Cloud Database (Supabase) if connected (fail-safe: local save never blocks)
     if (supabaseService.getConfig().isConfigured) {
       try {
         await supabaseService.saveProduct(product);
+        console.log('[StorageService] Product synced to Supabase successfully:', product.title);
       } catch (err) {
-        console.error('[StorageService] Error saving product to cloud Supabase:', err);
-        throw new Error('Local browser me save ho gaya, par Cloud Database (Supabase) par upload nahi ho paya.');
+        console.warn('[StorageService] Could not sync product to Supabase, saved locally:', err);
       }
     }
   },
