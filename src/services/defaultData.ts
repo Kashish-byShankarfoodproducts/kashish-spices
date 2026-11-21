@@ -1,3 +1,5 @@
+
+
 /**
  * ==============================================================================
  * KASHISH MASALE - Default Initial Data (Seed Data)
@@ -474,10 +476,10 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   taglineHindi: 'शुद्धता और स्वाद का अनूठा संगम',
   fssaiNumber: '22723105000242',
   sinceYear: '2017',
-  
+
   heroSubtitle: 'WELCOME TO SHANKAR FOOD PRODUCTS',
   heroBrand: 'KASHISH MASALE',
-  
+
   companyName: 'Shankar Food Products',
   address: 'Packed & Marketed by: Shankar Food Products, Ghaziabad, Uttar Pradesh (U.P.), India-201013',
   primaryPhone: '+91 9213544074',
@@ -487,15 +489,15 @@ export const DEFAULT_SITE_CONFIG: SiteConfig = {
   web3formsAccessKey: '',
   hcaptchaEnabled: true,
   hcaptchaSiteKey: '50b2fe65-b00b-4b9e-ad62-3ba471098be2',
-  
+
   facebookUrl: 'https://facebook.com',
   instagramUrl: 'https://instagram.com',
   wordpressUrl: 'https://shankarfoodproducts.wordpress.com/',
-  
+
   aboutHeading: 'The Secret to Every Perfect Indian Dish',
   aboutParagraph1: 'At Shankar Food Products, we believe that the soul of every Indian meal lies in its spices. For years, Kashish Masale has been dedicated to bringing you the most authentic, aromatic, and pure spice blends straight from the heart of India.',
   aboutParagraph2: 'We source only the freshest ingredients directly from farms. Each of our masalas is carefully crafted using traditional recipes passed down through generations, ensuring you get that authentic "ghar ka swaad" (homemade taste) in every bite.',
-  
+
   statBlendsCount: 27,
   statNaturalPercent: 100,
   statDistributors: 50,

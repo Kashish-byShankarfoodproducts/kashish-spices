@@ -48,8 +48,12 @@ export const supabaseService = {
       }
     }
 
-    const url = (envUrl || storedUrl).trim().replace(/\/+$/, '');
-    const anonKey = (envKey || storedKey).trim();
+    // Default project credentials so all devices automatically connect out of the box
+    const defaultUrl = 'https://ncffmwrvjplcnaavbkyz.supabase.co';
+    const defaultKey = 'sb_publishable_D2yUQe5TPadxjgdve68_dg_PBwMceiH';
+
+    const url = (envUrl || storedUrl || defaultUrl).trim().replace(/\/+$/, '');
+    const anonKey = (envKey || storedKey || defaultKey).trim();
 
     return {
       url,
